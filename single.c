@@ -3,14 +3,8 @@
 #include <dirent.h>
 #include <sys/types.h>
 #include <string.h>
-#include <pthread.h>
 
-#define BUFFER 1000
-
-int count = 0;
-int workers = 0;
-int currentWorkers = 0;
-char* search_string;
+#define BUFFER 500
 
 // Creating a linked list queue: https://stackoverflow.com/questions/36394860/linked-list-of-strings-in-c
 struct task
@@ -29,6 +23,7 @@ struct task* newTask(char *dir)
     struct task* temp = (struct task*)malloc(sizeof(struct task));
     temp->dir = dir;
     temp->next = NULL;
+
     return temp;
 }
 
@@ -36,25 +31,14 @@ char* getAbsolutePath(char* path)
 {
     char* actualPath;
     actualPath = (char*)malloc(BUFFER);
-    char *ptr;
-    ptr = realpath(path, actualPath);           // Getting absolute path: https://stackoverflow.com/questions/229012/getting-absolute-path-of-a-file
+
+    realpath(path, actualPath);           // Getting absolute path: https://stackoverflow.com/questions/229012/getting-absolute-path-of-a-file
 
     return actualPath;
 }
 
 struct taskQueue* q;
-pthread_t * thread;
-// struct task* temp = newTask(getAbsolutePath(dir));
-
-
-// struct taskQueue* createQueue(char* dir)
-// {
-//     struct taskQueue* q = (struct taskQueue*)malloc(sizeof(struct taskQueue));
-//     struct task* temp = newTask(getAbsolutePath(dir));
-//     q->front = q->rear = temp;
-    
-//     return q;
-// }
+char* search_string;
 
 void enqueue(int id, char* dir)
 {
@@ -87,26 +71,15 @@ char* dequeue(int id)
         q->rear = NULL;
     }
 
-    printf("[%d] DIR %s\n", id, getAbsolutePath(dir));
+    char* absolutePath;
+    absolutePath = (char*)malloc(BUFFER);
+
+    realpath(dir, absolutePath);
+
+    printf("[%d] DIR %s\n", id, absolutePath);
     free(temp);
+    free(absolutePath);
     return dir;
-}
-
-// int countElements(struct task* head) {
-//     int count = 0;
-
-//     while (head != NULL) {
-//         count++;
-//         head = head->next;
-//     }
-
-//     return count;
-    
-// }
-
-int parallelGrep(char* path)
-{
-
 }
 
 void *visit(int id)
@@ -120,28 +93,31 @@ void *visit(int id)
     {
         return NULL;
     }
-    count--;
+
     dir = opendir(path);                          // Traversing folders in C recursively: https://iq.opengenus.org/traversing-folders-in-c/
 
     FILE *f;
     char *command;
-
     command = (char*)malloc(BUFFER);
 
     while ((dp = readdir(dir)) != NULL)                 // File
     {
-        char* filePath;
-        filePath = (char*)malloc(BUFFER);
-        
-        strcpy(filePath, path);                         // Concatenating strings: https://www.educative.io/blog/concatenate-string-c
-        strcat(filePath, "/");
-        strcat(filePath, dp->d_name);
-
-        char* absolutePath;
-        absolutePath = getAbsolutePath(filePath);
-
         if (dp->d_type == DT_REG)                       // Checking file types: https://stackoverflow.com/questions/1121383/counting-the-number-of-files-in-a-directory-using-c
-        {                                      
+        {     
+            char* filePath;
+            filePath = (char*)malloc(BUFFER);
+            
+            strcpy(filePath, path);                         // Concatenating strings: https://www.educative.io/blog/concatenate-string-c
+            strcat(filePath, "/");
+            strcat(filePath, dp->d_name);             
+                    
+            char* absolutePath;
+            absolutePath = (char*)malloc(BUFFER);
+
+            realpath(filePath, absolutePath);
+
+            free(filePath);
+
             f = fopen(absolutePath, "r");               // Accessing files: https://stackoverflow.com/questions/16869467/command-line-arguments-reading-a-file
             
             strcpy(command, "grep ");                   // grep 
@@ -156,6 +132,8 @@ void *visit(int id)
                 printf("[%d] ABSENT %s\n", id, absolutePath);
 
             fclose(f);
+            
+            free(absolutePath);
         }
         else if(strcmp(dp->d_name, "..") != 0 && strcmp(dp->d_name, ".") != 0)  // Check if directory is parent or current: https://stackoverflow.com/questions/50205605/how-to-figure-out-if-the-current-directory-is-the-root-in-c
         {
@@ -164,12 +142,15 @@ void *visit(int id)
             strcpy(nextPath, path);
             strcat(nextPath, "/");
             strcat(nextPath, dp->d_name);
-            count++;
+
             enqueue(id, getAbsolutePath(nextPath));
+
+            free(nextPath);
         }
     }
     closedir(dir);
-
+    free(command);
+    free(path);
     visit(id);
 
     return 0;
@@ -177,23 +158,20 @@ void *visit(int id)
 
 int main(int argc, char *argv[])
 {
-    workers = atoi(argv[1]);
     search_string = argv[3];
-    thread = malloc(sizeof(pthread_t)*workers);
 
     q = (struct taskQueue*)malloc(sizeof(struct taskQueue));
-    struct task* temp = newTask(getAbsolutePath(argv[2]));
+
+    char* absolutePath;
+    absolutePath = (char*)malloc(BUFFER);
+    realpath(argv[2], absolutePath);
+    struct task* temp = newTask(absolutePath);
+
     q->front = q->rear = temp;
 
-    // for(int i = 0; i < atoi(argv[1]); i++)
-    // {
-    //     printf("[%d] Initialized Worker Thread\n", i);
-    // }
-
-    // currentWorkers++;
-    pthread_create(&thread[0], NULL, (void *) visit, 0);
-
-    pthread_join(thread[0], NULL);
+    visit(0);
+    
+    free(q);
 
     return 0;
 }

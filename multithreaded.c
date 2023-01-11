@@ -4,9 +4,11 @@
 #include <sys/types.h>
 #include <string.h>
 #include <pthread.h>
-#include <semaphore.h>
 
 #define BUFFER 1000
+
+pthread_mutex_t lock[2];
+pthread_cond_t cond1, cond2, cond3;
 
 int count = 0;
 int workers = 0;
@@ -93,37 +95,20 @@ char* dequeue(int id)
     return dir;
 }
 
-// int countElements(struct task* head) {
-//     int count = 0;
-
-//     while (head != NULL) {
-//         count++;
-//         head = head->next;
-//     }
-
-//     return count;
-    
-// }
-
-int parallelGrep(char* path)
-{
-
-}
-
 void *visit(int* arg)
 {
+    pthread_mutex_lock(&lock[1]);
     int id = *arg;
 
     DIR *dir;
     struct dirent *dp;
     char *file_name;
-
+    
     char *path = dequeue(id);
     if(path == NULL)
     {
         return NULL;
     }
-    count--;
     dir = opendir(path);                          // Traversing folders in C recursively: https://iq.opengenus.org/traversing-folders-in-c/
 
     FILE *f;
@@ -159,6 +144,7 @@ void *visit(int* arg)
                 printf("[%d] ABSENT %s\n", id, absolutePath);
 
             fclose(f);
+            pthread_cond_signal(&cond1);
             
         }
         else if(strcmp(dp->d_name, "..") != 0 && strcmp(dp->d_name, ".") != 0)  // Check if directory is parent or current: https://stackoverflow.com/questions/50205605/how-to-figure-out-if-the-current-directory-is-the-root-in-c
@@ -168,14 +154,18 @@ void *visit(int* arg)
             strcpy(nextPath, path);
             strcat(nextPath, "/");
             strcat(nextPath, dp->d_name);
-            count++;
             enqueue(id, getAbsolutePath(nextPath));
         }
     }
     closedir(dir);
 
+    if(currentWorkers > workers)
+    {
+        pthread_cond_wait(&cond1, &lock[1]);
+    }
     visit(&id);
-
+    pthread_mutex_unlock(&lock[1]);
+    
     // int localCount = count;
     // while(1)
     // {
@@ -193,6 +183,7 @@ void *visit(int* arg)
 
 int main(int argc, char *argv[])
 {
+    pthread_mutex_lock(&lock[0]);
     workers = atoi(argv[1]);
     search_string = argv[3];
     
@@ -217,6 +208,10 @@ int main(int argc, char *argv[])
     // currentWorkers--;
     for(int id = 0; id < workers; id++)
     {
+        if(currentWorkers > workers)
+        {
+            pthread_cond_wait(&cond1, &lock[0]);
+        }
         pthread_create(&thread[id], NULL, (void *) visit, &id);
     }
 
@@ -225,6 +220,6 @@ int main(int argc, char *argv[])
         pthread_join(thread[id], NULL);
     }
     // visit(0);
-
+    pthread_mutex_unlock(&lock[0]);
     return 0;
 }
