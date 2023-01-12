@@ -27,16 +27,6 @@ struct task* newTask(char *dir)
     return temp;
 }
 
-char* getAbsolutePath(char* path)
-{
-    char* actualPath;
-    actualPath = (char*)malloc(BUFFER);
-
-    realpath(path, actualPath);           // Getting absolute path: https://stackoverflow.com/questions/229012/getting-absolute-path-of-a-file
-
-    return actualPath;
-}
-
 struct taskQueue* q;
 char* search_string;
 
@@ -106,8 +96,6 @@ void *visit(int id)
             strcat(filePath, "/");
             strcat(filePath, dp->d_name);             
 
-            
-
             f = fopen(filePath, "r");               // Accessing files: https://stackoverflow.com/questions/16869467/command-line-arguments-reading-a-file
             
             strcpy(command, "grep ");                   // grep 
@@ -133,9 +121,7 @@ void *visit(int id)
             strcat(nextPath, "/");
             strcat(nextPath, dp->d_name);
 
-            enqueue(id, getAbsolutePath(nextPath));
-
-            free(nextPath);
+            enqueue(id, nextPath);
         }
     }
     closedir(dir);
@@ -154,7 +140,7 @@ int main(int argc, char *argv[])
 
     char* absolutePath;
     absolutePath = (char*)malloc(BUFFER);
-    realpath(argv[2], absolutePath);
+    realpath(argv[2], absolutePath);                            // Getting absolute path: https://stackoverflow.com/questions/229012/getting-absolute-path-of-a-file
     struct task* temp = newTask(absolutePath);
 
     q->front = q->rear = temp;
