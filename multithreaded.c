@@ -33,7 +33,7 @@ char* search_string;
 pthread_t* thread;
 pthread_mutex_t lock[3];
 
-void enqueue(int id, char* dir)
+void enqueue(char* dir)
 {
     struct task* temp = newTask(dir);
 
@@ -44,13 +44,10 @@ void enqueue(int id, char* dir)
     }
     q->rear->next = temp;
     q->rear = temp;
-
-    printf("[%d] ENQUEUE %s\n", id, dir);
 }
 
-char* dequeue(int id)
+char* dequeue()
 {
-    
     if (q->front == NULL)
     {
         return NULL;
@@ -65,8 +62,6 @@ char* dequeue(int id)
     {
         q->rear = NULL;
     }
-
-    printf("[%d] DIR %s\n", id, dir);
     free(temp);
 
     return dir;
@@ -75,19 +70,22 @@ char* dequeue(int id)
 void *visit(int* arg)
 {
     int id = *arg;
-
-    DIR *dir;
-    struct dirent *dp;
-    char *file_name;
-
     pthread_mutex_lock(&lock[0]);
-    char *path = dequeue(id);
+    char *path = dequeue();
     pthread_mutex_unlock(&lock[0]);
 
     if(path == NULL)
     {
         return NULL;
     }
+
+    printf("[%d] DIR %s\n", id, path);
+    
+
+    DIR *dir;
+    struct dirent *dp;
+    char *file_name;
+
     dir = opendir(path);                          // Traversing folders in C recursively: https://iq.opengenus.org/traversing-folders-in-c/
 
     FILE *f;
@@ -98,6 +96,8 @@ void *visit(int* arg)
     {
         if (dp->d_type == DT_REG)                       // Checking file types: https://stackoverflow.com/questions/1121383/counting-the-number-of-files-in-a-directory-using-c
         {   
+            pthread_mutex_lock(&lock[2]);
+
             char* filePath;
             filePath = (char*)malloc(BUFFER);
             
@@ -113,7 +113,7 @@ void *visit(int* arg)
             strcat(command, filePath);
             strcat(command, " >/dev/null");             // How to redirect stdout to /dev/null: https://unix.stackexchange.com/questions/119648/redirecting-to-dev-null
      
-            pthread_mutex_lock(&lock[2]);
+            
             int result = system(command);
             pthread_mutex_unlock(&lock[2]);
 
@@ -129,15 +129,18 @@ void *visit(int* arg)
         }
         else if(strcmp(dp->d_name, "..") != 0 && strcmp(dp->d_name, ".") != 0)  // Check if directory is parent or current: https://stackoverflow.com/questions/50205605/how-to-figure-out-if-the-current-directory-is-the-root-in-c
         {
+            pthread_mutex_lock(&lock[1]);
+
             char *nextPath;
             nextPath = (char*)malloc(BUFFER);
             strcpy(nextPath, path);
             strcat(nextPath, "/");
             strcat(nextPath, dp->d_name);
             
-            pthread_mutex_lock(&lock[1]);
-            enqueue(id, nextPath);
+            enqueue(nextPath);
             pthread_mutex_unlock(&lock[1]);
+
+            printf("[%d] ENQUEUE %s\n", id, nextPath);
         }
     }
     closedir(dir);
