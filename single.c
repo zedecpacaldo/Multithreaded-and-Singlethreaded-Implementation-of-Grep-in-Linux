@@ -71,14 +71,9 @@ char* dequeue(int id)
         q->rear = NULL;
     }
 
-    char* absolutePath;
-    absolutePath = (char*)malloc(BUFFER);
-
-    realpath(dir, absolutePath);
-
-    printf("[%d] DIR %s\n", id, absolutePath);
+    printf("[%d] DIR %s\n", id, dir);
     free(temp);
-    free(absolutePath);
+    
     return dir;
 }
 
@@ -110,30 +105,25 @@ void *visit(int id)
             strcpy(filePath, path);                         // Concatenating strings: https://www.educative.io/blog/concatenate-string-c
             strcat(filePath, "/");
             strcat(filePath, dp->d_name);             
-                    
-            char* absolutePath;
-            absolutePath = (char*)malloc(BUFFER);
 
-            realpath(filePath, absolutePath);
+            
 
-            free(filePath);
-
-            f = fopen(absolutePath, "r");               // Accessing files: https://stackoverflow.com/questions/16869467/command-line-arguments-reading-a-file
+            f = fopen(filePath, "r");               // Accessing files: https://stackoverflow.com/questions/16869467/command-line-arguments-reading-a-file
             
             strcpy(command, "grep ");                   // grep 
             strcat(command, search_string);
             strcat(command, " ");
-            strcat(command, absolutePath);
+            strcat(command, filePath);
             strcat(command, " >/dev/null");             // How to redirect stdout to /dev/null: https://unix.stackexchange.com/questions/119648/redirecting-to-dev-null
      
             if(!system(command))                        // System function: https://www.tutorialspoint.com/system-function-in-c-cplusplus#:~:text=The%20system()%20function%20is,%3Cstdlib.
-                printf("[%d] PRESENT %s\n", id, absolutePath);
+                printf("[%d] PRESENT %s\n", id, filePath);
             else
-                printf("[%d] ABSENT %s\n", id, absolutePath);
+                printf("[%d] ABSENT %s\n", id, filePath);
 
             fclose(f);
             
-            free(absolutePath);
+            free(filePath);
         }
         else if(strcmp(dp->d_name, "..") != 0 && strcmp(dp->d_name, ".") != 0)  // Check if directory is parent or current: https://stackoverflow.com/questions/50205605/how-to-figure-out-if-the-current-directory-is-the-root-in-c
         {
