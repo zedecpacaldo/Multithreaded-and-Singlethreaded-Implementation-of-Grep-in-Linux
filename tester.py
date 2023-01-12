@@ -2,9 +2,9 @@ import requests
 import random
 from pathlib import Path
 
-DEPTH = 3
-FOLDERS = 5
-FILES = 5
+DEPTH = 4
+FOLDERS = 6
+FILES = 7
 
 word_site = "https://www.mit.edu/~ecprice/wordlist.10000"
 response = requests.get(word_site)
