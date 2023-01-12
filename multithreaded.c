@@ -5,6 +5,7 @@
 #include <string.h>
 #include <pthread.h>
 
+
 #define BUFFER 500
 
 // Creating a linked list queue: https://stackoverflow.com/questions/36394860/linked-list-of-strings-in-c
@@ -30,12 +31,11 @@ struct task* newTask(char *dir)
 struct taskQueue* q;
 char* search_string;
 pthread_t* thread;
-int workers;
+pthread_mutex_t lock[3];
 
 void enqueue(int id, char* dir)
 {
     struct task* temp = newTask(dir);
-    printf("[%d] ENQUEUE %s\n", id, dir);
 
     if(q->rear == NULL)
     {
@@ -44,10 +44,13 @@ void enqueue(int id, char* dir)
     }
     q->rear->next = temp;
     q->rear = temp;
+
+    printf("[%d] ENQUEUE %s\n", id, dir);
 }
 
 char* dequeue(int id)
 {
+    
     if (q->front == NULL)
     {
         return NULL;
@@ -76,8 +79,11 @@ void *visit(int* arg)
     DIR *dir;
     struct dirent *dp;
     char *file_name;
-    
+
+    pthread_mutex_lock(&lock[0]);
     char *path = dequeue(id);
+    pthread_mutex_unlock(&lock[0]);
+
     if(path == NULL)
     {
         return NULL;
@@ -107,7 +113,11 @@ void *visit(int* arg)
             strcat(command, filePath);
             strcat(command, " >/dev/null");             // How to redirect stdout to /dev/null: https://unix.stackexchange.com/questions/119648/redirecting-to-dev-null
      
-            if(!system(command))                        // System function: https://www.tutorialspoint.com/system-function-in-c-cplusplus#:~:text=The%20system()%20function%20is,%3Cstdlib.
+            pthread_mutex_lock(&lock[2]);
+            int result = system(command);
+            pthread_mutex_unlock(&lock[2]);
+
+            if(!result)                        // System function: https://www.tutorialspoint.com/system-function-in-c-cplusplus#:~:text=The%20system()%20function%20is,%3Cstdlib.
                 printf("[%d] PRESENT %s\n", id, filePath);
             else
                 printf("[%d] ABSENT %s\n", id, filePath);
@@ -124,8 +134,10 @@ void *visit(int* arg)
             strcpy(nextPath, path);
             strcat(nextPath, "/");
             strcat(nextPath, dp->d_name);
-
+            
+            pthread_mutex_lock(&lock[1]);
             enqueue(id, nextPath);
+            pthread_mutex_unlock(&lock[1]);
         }
     }
     closedir(dir);
@@ -138,7 +150,7 @@ void *visit(int* arg)
 
 int main(int argc, char *argv[])
 {
-    workers = atoi(argv[1]);
+    int workers = atoi(argv[1]);
     search_string = argv[3];
     
     // Initialize Threads
@@ -155,7 +167,6 @@ int main(int argc, char *argv[])
 
     for(int id = 0; id < workers; id++)
     {
-        printf("Creating worker %d...\n", id);
         pthread_create(&thread[id], NULL, (void *) visit, &id);
     }
 
