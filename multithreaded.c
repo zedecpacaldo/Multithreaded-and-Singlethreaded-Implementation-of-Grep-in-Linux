@@ -32,6 +32,8 @@ struct taskQueue* q;
 char* search_string;
 pthread_t* thread;
 pthread_mutex_t lock[3];
+int folderCount = 0;
+int visitedFolders = 0;
 
 void enqueue(char* dir)
 {
@@ -67,88 +69,123 @@ char* dequeue()
     return dir;
 }
 
-void *visit(int* arg)
+
+void traverse(char *path)
 {
-    int id = *arg;
-    pthread_mutex_lock(&lock[0]);
-    char *path = dequeue();
-    pthread_mutex_unlock(&lock[0]);
-
-    if(path == NULL)
-    {
-        return NULL;
-    }
-
-    printf("[%d] DIR %s\n", id, path);
-    
-
-    DIR *dir;
+    char nextPath[BUFFER];
     struct dirent *dp;
-    char *file_name;
+    DIR *dir = opendir(path);
 
-    dir = opendir(path);                          // Traversing folders in C recursively: https://iq.opengenus.org/traversing-folders-in-c/
+   
+    if (!dir)
+        return;
 
-    FILE *f;
-    char *command;
-    command = (char*)malloc(BUFFER);
-
-    while ((dp = readdir(dir)) != NULL)                 // File
+    while ((dp = readdir(dir)) != NULL)
     {
-        if (dp->d_type == DT_REG)                       // Checking file types: https://stackoverflow.com/questions/1121383/counting-the-number-of-files-in-a-directory-using-c
-        {   
-            pthread_mutex_lock(&lock[2]);
-
-            char* filePath;
-            filePath = (char*)malloc(BUFFER);
-            
-            strcpy(filePath, path);                         // Concatenating strings: https://www.educative.io/blog/concatenate-string-c
-            strcat(filePath, "/");
-            strcat(filePath, dp->d_name);   
-
-            f = fopen(filePath, "r");               // Accessing files: https://stackoverflow.com/questions/16869467/command-line-arguments-reading-a-file
-            
-            strcpy(command, "grep ");                   // grep 
-            strcat(command, search_string);
-            strcat(command, " ");
-            strcat(command, filePath);
-            strcat(command, " >/dev/null");             // How to redirect stdout to /dev/null: https://unix.stackexchange.com/questions/119648/redirecting-to-dev-null
-     
-            
-            int result = system(command);
-            pthread_mutex_unlock(&lock[2]);
-
-            if(!result)                        // System function: https://www.tutorialspoint.com/system-function-in-c-cplusplus#:~:text=The%20system()%20function%20is,%3Cstdlib.
-                printf("[%d] PRESENT %s\n", id, filePath);
-            else
-                printf("[%d] ABSENT %s\n", id, filePath);
-
-            fclose(f);
-
-            free(filePath);
-            
-        }
-        else if(strcmp(dp->d_name, "..") != 0 && strcmp(dp->d_name, ".") != 0)  // Check if directory is parent or current: https://stackoverflow.com/questions/50205605/how-to-figure-out-if-the-current-directory-is-the-root-in-c
+        if ((strcmp(dp->d_name, ".") != 0 && strcmp(dp->d_name, "..") != 0) && (dp->d_type != DT_REG))
         {
-            pthread_mutex_lock(&lock[1]);
-
-            char *nextPath;
-            nextPath = (char*)malloc(BUFFER);
+            folderCount++;
             strcpy(nextPath, path);
             strcat(nextPath, "/");
             strcat(nextPath, dp->d_name);
-            
-            enqueue(nextPath);
-            pthread_mutex_unlock(&lock[1]);
 
-            printf("[%d] ENQUEUE %s\n", id, nextPath);
+            traverse(nextPath);
         }
     }
-    closedir(dir);
-    free(command);
-    free(path);
-    visit(&id);
 
-    return 0;
+    closedir(dir);
+}
+
+void* fn(void* arg)
+{
+    int id = *((int*)arg);
+
+    while(visitedFolders < folderCount)
+    {
+        while(q->front != NULL)
+        {
+            pthread_mutex_lock(&lock[0]);
+            char *path = dequeue();
+            pthread_mutex_unlock(&lock[0]);
+
+            if(path == NULL)
+            {
+                return NULL;
+            }
+
+            printf("[%d] DIR %s\n", id, path);
+
+            DIR *dir;
+            struct dirent *dp;
+            char *file_name;
+
+            dir = opendir(path);                          // Traversing folders in C recursively: https://iq.opengenus.org/traversing-folders-in-c/
+
+            FILE *f;
+            char *command;
+            command = (char*)malloc(BUFFER);
+
+            while ((dp = readdir(dir)) != NULL)                 // File
+            {
+                if (dp->d_type == DT_REG)                       // Checking file types: https://stackoverflow.com/questions/1121383/counting-the-number-of-files-in-a-directory-using-c
+                {   
+                    pthread_mutex_lock(&lock[1]);
+
+                    char* filePath;
+                    filePath = (char*)malloc(BUFFER);
+                    
+                    strcpy(filePath, path);                         // Concatenating strings: https://www.educative.io/blog/concatenate-string-c
+                    strcat(filePath, "/");
+                    strcat(filePath, dp->d_name);   
+
+                    f = fopen(filePath, "r");               // Accessing files: https://stackoverflow.com/questions/16869467/command-line-arguments-reading-a-file
+                    
+                    strcpy(command, "grep ");                   // grep 
+                    strcat(command, search_string);
+                    strcat(command, " ");
+                    strcat(command, filePath);
+                    strcat(command, " >/dev/null");             // How to redirect stdout to /dev/null: https://unix.stackexchange.com/questions/119648/redirecting-to-dev-null
+            
+                    
+                    int result = system(command);
+                    pthread_mutex_unlock(&lock[1]);
+
+                    if(!result)                        // System function: https://www.tutorialspoint.com/system-function-in-c-cplusplus#:~:text=The%20system()%20function%20is,%3Cstdlib.
+                        printf("[%d] PRESENT %s\n", id, filePath);
+                    else
+                        printf("[%d] ABSENT %s\n", id, filePath);
+
+                    fclose(f);
+
+                    free(filePath);
+                    
+                }
+                else if(strcmp(dp->d_name, "..") != 0 && strcmp(dp->d_name, ".") != 0)  // Check if directory is parent or current: https://stackoverflow.com/questions/50205605/how-to-figure-out-if-the-current-directory-is-the-root-in-c
+                {
+                    pthread_mutex_lock(&lock[1]);
+
+                    char *nextPath;
+                    nextPath = (char*)malloc(BUFFER);
+                    strcpy(nextPath, path);
+                    strcat(nextPath, "/");
+                    strcat(nextPath, dp->d_name);
+                    
+                    enqueue(nextPath);
+                    visitedFolders++;
+                    pthread_mutex_unlock(&lock[1]);
+
+                    printf("[%d] ENQUEUE %s\n", id, nextPath);
+                }
+            }
+
+            closedir(dir);
+            free(command);
+            free(path);
+
+        }
+    }
+
+    free(arg);
 }
 
 int main(int argc, char *argv[])
@@ -161,23 +198,30 @@ int main(int argc, char *argv[])
 
     q = (struct taskQueue*)malloc(sizeof(struct taskQueue));
 
+    // Enqueue root
     char* absolutePath;
     absolutePath = (char*)malloc(BUFFER);
     realpath(argv[2], absolutePath);
     struct task* temp = newTask(absolutePath);
-
     q->front = q->rear = temp;
 
-    for(int id = 0; id < workers; id++)
+    traverse(absolutePath);
+    
+    // pthread_mutex_lock(&lock[2]);
+    for(int i = 0; i < workers; i++)
     {
-        pthread_create(&thread[id], NULL, (void *) visit, &id);
+        int *arg = malloc(sizeof(*arg));
+        
+        *arg = i;
+        pthread_create(&thread[i], NULL, (void *) fn, arg);
     }
 
-    for(int id = 0; id < workers; id++)
+    for(int i = 0; i < workers; i++)
     {
-        pthread_join(thread[id], NULL);
+        pthread_join(thread[i], NULL);
     }
-
+    // pthread_mutex_unlock(&lock[2]);
+    
     free(q);
     free(thread);
 
