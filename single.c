@@ -134,7 +134,22 @@ void *visit(int id)
 
 int main(int argc, char *argv[])
 {
-    search_string = argv[3];
+    search_string = (char*)malloc(BUFFER);
+    strcpy(search_string, "'");
+    if(argc > 4)
+    {
+        strcat(search_string, argv[3]);
+        for(int i = 4; i < argc; i++)
+        {
+            strcat(search_string, " ");
+            strcat(search_string, argv[i]);
+        }
+    }
+    else
+    {
+        strcat(search_string, argv[3]);
+    }
+    strcat(search_string, "'");
 
     q = (struct taskQueue*)malloc(sizeof(struct taskQueue));
 
@@ -148,6 +163,6 @@ int main(int argc, char *argv[])
     visit(0);
     
     free(q);
-
+    free(search_string);
     return 0;
 }

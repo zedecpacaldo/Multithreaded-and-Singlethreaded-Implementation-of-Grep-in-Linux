@@ -191,7 +191,23 @@ void* fn(void* arg)
 int main(int argc, char *argv[])
 {
     int workers = atoi(argv[1]);
-    search_string = argv[3];
+
+    search_string = (char*)malloc(BUFFER);
+    strcpy(search_string, "'");
+    if(argc > 4)
+    {
+        strcat(search_string, argv[3]);
+        for(int i = 4; i < argc; i++)
+        {
+            strcat(search_string, " ");
+            strcat(search_string, argv[i]);
+        }
+    }
+    else
+    {
+        strcat(search_string, argv[3]);
+    }
+    strcat(search_string, "'");
     
     // Initialize Threads
     thread = malloc(sizeof(pthread_t)*workers);
@@ -207,7 +223,6 @@ int main(int argc, char *argv[])
 
     traverse(absolutePath);
     
-    // pthread_mutex_lock(&lock[2]);
     for(int i = 0; i < workers; i++)
     {
         int *arg = malloc(sizeof(*arg));
@@ -220,10 +235,10 @@ int main(int argc, char *argv[])
     {
         pthread_join(thread[i], NULL);
     }
-    // pthread_mutex_unlock(&lock[2]);
     
     free(q);
     free(thread);
+    free(search_string);
 
     return 0;
 }
