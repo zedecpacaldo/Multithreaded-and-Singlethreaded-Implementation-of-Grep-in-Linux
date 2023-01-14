@@ -4,7 +4,8 @@
 #include <sys/types.h>
 #include <string.h>
 
-#define BUFFER 500
+
+#define BUFFER 260
 
 // Creating a linked list queue: https://stackoverflow.com/questions/36394860/linked-list-of-strings-in-c
 struct task
@@ -29,6 +30,7 @@ struct task* newTask(char *dir)
 
 struct taskQueue* q;
 char* search_string;
+
 
 void enqueue(int id, char* dir)
 {
@@ -79,32 +81,41 @@ void *visit(int id)
         return NULL;
     }
 
-    dir = opendir(path);                          // Traversing folders in C recursively: https://iq.opengenus.org/traversing-folders-in-c/
+    // Traversing folders in C recursively: https://iq.opengenus.org/traversing-folders-in-c/
+    dir = opendir(path);                          
 
     FILE *f;
     char *command;
     command = (char*)malloc(BUFFER);
 
-    while ((dp = readdir(dir)) != NULL)                 // File
+    // File
+    while ((dp = readdir(dir)) != NULL)                 
     {
-        if (dp->d_type == DT_REG)                       // Checking file types: https://stackoverflow.com/questions/1121383/counting-the-number-of-files-in-a-directory-using-c
+        // Checking file types: https://stackoverflow.com/questions/1121383/counting-the-number-of-files-in-a-directory-using-c
+        if (dp->d_type == DT_REG)                       
         {     
             char* filePath;
             filePath = (char*)malloc(BUFFER);
             
-            strcpy(filePath, path);                         // Concatenating strings: https://www.educative.io/blog/concatenate-string-c
+            // Concatenating strings: https://www.educative.io/blog/concatenate-string-c
+            strcpy(filePath, path);                         
             strcat(filePath, "/");
             strcat(filePath, dp->d_name);             
 
-            f = fopen(filePath, "r");               // Accessing files: https://stackoverflow.com/questions/16869467/command-line-arguments-reading-a-file
+            // Accessing files: https://stackoverflow.com/questions/16869467/command-line-arguments-reading-a-file
+            f = fopen(filePath, "r");               
             
-            strcpy(command, "grep ");                   // grep 
+            // grep command
+            strcpy(command, "grep ");                   
             strcat(command, search_string);
             strcat(command, " ");
             strcat(command, filePath);
-            strcat(command, " >/dev/null");             // How to redirect stdout to /dev/null: https://unix.stackexchange.com/questions/119648/redirecting-to-dev-null
+
+            // How to redirect stdout to /dev/null: https://unix.stackexchange.com/questions/119648/redirecting-to-dev-null
+            strcat(command, " >/dev/null");             
      
-            if(!system(command))                        // System function: https://www.tutorialspoint.com/system-function-in-c-cplusplus#:~:text=The%20system()%20function%20is,%3Cstdlib.
+            // System function: https://www.tutorialspoint.com/system-function-in-c-cplusplus#:~:text=The%20system()%20function%20is,%3Cstdlib.
+            if(!system(command))                        
                 printf("[%d] PRESENT %s\n", id, filePath);
             else
                 printf("[%d] ABSENT %s\n", id, filePath);
@@ -113,7 +124,8 @@ void *visit(int id)
             
             free(filePath);
         }
-        else if(strcmp(dp->d_name, "..") != 0 && strcmp(dp->d_name, ".") != 0)  // Check if directory is parent or current: https://stackoverflow.com/questions/50205605/how-to-figure-out-if-the-current-directory-is-the-root-in-c
+        // Check if directory is parent or current: https://stackoverflow.com/questions/50205605/how-to-figure-out-if-the-current-directory-is-the-root-in-c
+        else if(strcmp(dp->d_name, "..") != 0 && strcmp(dp->d_name, ".") != 0)  
         {
             char *nextPath;
             nextPath = (char*)malloc(BUFFER);
@@ -155,7 +167,9 @@ int main(int argc, char *argv[])
 
     char* absolutePath;
     absolutePath = (char*)malloc(BUFFER);
-    realpath(argv[2], absolutePath);                            // Getting absolute path: https://stackoverflow.com/questions/229012/getting-absolute-path-of-a-file
+
+    // Getting absolute path: https://stackoverflow.com/questions/229012/getting-absolute-path-of-a-file
+    realpath(argv[2], absolutePath);                           
     struct task* temp = newTask(absolutePath);
 
     q->front = q->rear = temp;
@@ -166,3 +180,4 @@ int main(int argc, char *argv[])
     free(search_string);
     return 0;
 }
+
