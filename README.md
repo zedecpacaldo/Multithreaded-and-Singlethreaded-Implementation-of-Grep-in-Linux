@@ -1,3 +1,6 @@
+![image](https://user-images.githubusercontent.com/23215457/224632951-1d6d97d1-22dd-43b7-8675-f01ff96ac431.png)
+
+
 # Multithreaded-and-Singlethreaded-Implementation-of-Grep-in-Linux
 
 Project in CS 140: Operating Systems
